@@ -1,156 +1,27 @@
 import { strictEqual } from "assert";
-import { runExecutable } from "../../client/tools/lsp_helper";
-import * as path from "node:path";
-import { pathToFileURL } from "node:url";
+import { buildExecutable } from "../../client/tools/lsp_helper";
 
-suite("runExecutable", () => {
-  const originalPlatform = process.platform;
-  const originalEnv = process.env;
+suite("buildExecutable", () => {
+  test("should pass the command string through as-is", () => {
+    const result = buildExecutable("npx --no oxlint --lsp");
 
-  teardown(() => {
-    Object.defineProperty(process, "platform", { value: originalPlatform });
-    process.env = originalEnv;
-  });
-
-  test("should create Node.js executable for .js files", async () => {
-    const result = await runExecutable({
-      path: "/path/to/server.js",
-      loader: "node",
-    });
-
-    strictEqual(result.command, "node");
-    strictEqual(result.args?.[0], "/path/to/server.js");
-    strictEqual(result.args?.[1], "--lsp");
-  });
-
-  test("should create Node.js executable for .cjs files", async () => {
-    const result = await runExecutable({
-      path: "/path/to/server.cjs",
-      loader: "node",
-    });
-
-    strictEqual(result.command, "node");
-    strictEqual(result.args?.[0], "/path/to/server.cjs");
-    strictEqual(result.args?.[1], "--lsp");
-  });
-
-  test("should create Node.js executable for .mjs files", async () => {
-    const result = await runExecutable({
-      path: "/path/to/server.mjs",
-      loader: "node",
-    });
-
-    strictEqual(result.command, "node");
-    strictEqual(result.args?.[0], "/path/to/server.mjs");
-    strictEqual(result.args?.[1], "--lsp");
-  });
-
-  test("should create binary executable for non-Node files", async () => {
-    const result = await runExecutable({
-      path: "/path/to/oxc-language-server",
-      loader: "native",
-    });
-
-    let expectedCommand = "/path/to/oxc-language-server";
-    if (process.platform === "win32") {
-      expectedCommand = `"${expectedCommand}"`;
-    }
-
-    strictEqual(result.command, expectedCommand);
-    strictEqual(result.args?.[0], "--lsp");
-    strictEqual(result.options?.shell, process.platform === "win32");
-  });
-
-  test("should use shell on Windows for binary executables", async () => {
-    Object.defineProperty(process, "platform", { value: "win32" });
-
-    const result = await runExecutable({
-      path: "C:\\Path With Spaces\\oxc-language-server",
-      loader: "native",
-    });
-
+    strictEqual(result.command, "npx --no oxlint --lsp");
     strictEqual(result.options?.shell, true);
   });
 
-  test("should prepend nodePath to PATH", async () => {
-    Object.defineProperty(process, "platform", { value: "linux" });
-    process.env.PATH = "/usr/bin:/bin";
+  test("should set default environment variables", () => {
+    const result = buildExecutable("npx --no oxlint --lsp");
 
-    const result = await runExecutable(
-      {
-        path: "/path/to/server.js",
-        loader: "node",
-      },
-      false,
-      "/custom/node/bin/node",
-    );
-
-    strictEqual(result.command, "/custom/node/bin/node");
-    strictEqual(result.options?.env?.PATH?.includes(`/custom/node/bin${path.delimiter}`), true);
+    strictEqual(result.options?.env?.NO_COLOR, "1");
+    strictEqual(result.options?.env?.OXC_LOG, "info");
   });
 
-  test("should set path in quotes on Windows for binary executables", async () => {
-    Object.defineProperty(process, "platform", { value: "win32" });
-
-    const result = await runExecutable({
-      path: "C:\\Path With Spaces\\oxc-language-server",
-      loader: "native",
+  test("should merge extra environment variables", () => {
+    const result = buildExecutable("npx --no oxlint --lsp", {
+      OXLINT_TSGOLINT_PATH: "/path/to/tsgolint",
     });
 
-    strictEqual(result.command, '"C:\\Path With Spaces\\oxc-language-server"');
-  });
-
-  test("should use the provided node path for Node.js executables", async () => {
-    const result = await runExecutable(
-      {
-        path: "/path/to/server.js",
-        loader: "node",
-      },
-      false,
-      "/custom/node/bin/node",
-    );
-
-    strictEqual(result.command, "/custom/node/bin/node");
-    strictEqual(result.args?.[0], "/path/to/server.js");
-    strictEqual(result.args?.[1], "--lsp");
-  });
-
-  test("should use 'execPath' with ELECTRON_RUN_AS_NODE", async () => {
-    const result = await runExecutable(
-      {
-        path: "/path/to/server.js",
-        loader: "node",
-      },
-      true,
-    );
-
-    strictEqual(result.command, process.execPath);
-    strictEqual(result.options?.env?.ELECTRON_RUN_AS_NODE, "1");
-  });
-
-  test("should not set ELECTRON_RUN_AS_NODE server env", async () => {
-    const result = await runExecutable(
-      {
-        path: "/path/to/server.js",
-        loader: "node",
-      },
-      false,
-    );
-    strictEqual(result.options?.env?.ELECTRON_RUN_AS_NODE, undefined);
-  });
-
-  test("should set yarn PnP loader path when provided", async () => {
-    const result = await runExecutable({
-      path: "/path/to/server.js",
-      loader: "node",
-      yarnPnpLoaderPath: "/path/to/.pnp.cjs",
-    });
-    strictEqual(result.args?.includes("--require"), true);
-    strictEqual(result.args?.includes("/path/to/.pnp.cjs"), true, JSON.stringify(result.args));
-    strictEqual(result.args?.includes("--loader"), true);
-    const expectedEsmLoaderPath = pathToFileURL(
-      `${path.sep}path${path.sep}to${path.sep}.pnp.loader.mjs`,
-    ).href;
-    strictEqual(result.args?.includes(expectedEsmLoaderPath), true, JSON.stringify(result.args));
+    strictEqual(result.options?.env?.OXLINT_TSGOLINT_PATH, "/path/to/tsgolint");
+    strictEqual(result.options?.env?.NO_COLOR, "1");
   });
 });

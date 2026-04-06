@@ -1,5 +1,4 @@
 import { VSCodeConfig } from "./VSCodeConfig";
-import { execFile } from "node:child_process";
 import * as os from "node:os";
 import { env, version, window } from "vscode";
 
@@ -30,8 +29,6 @@ export async function copyDebugCommand(
   vscodeConfig: VSCodeConfig,
 ) {
   const osName = getOsName();
-  const nodeCommand = resolveNodeCommand(vscodeConfig.nodePath, vscodeConfig.useExecPath);
-  const nodeVersion = await getNodeVersion(nodeCommand);
 
   const info = [
     "### Used Versions",
@@ -42,24 +39,13 @@ export async function copyDebugCommand(
     `oxfmt: v${oxfmtVersion}`,
     `Editor: ${env.appName} v${version} (${env.appHost})`,
     `Operating System and Version: ${osName} (${os.arch()})`,
-    `Node Version: ${nodeVersion} (${nodeCommand})`,
+    `oxlint cmd: ${vscodeConfig.oxlintCmd}`,
+    `oxfmt cmd: ${vscodeConfig.oxfmtCmd}`,
     "```",
   ].join("\n");
 
   await env.clipboard.writeText(info);
   window.showInformationMessage("Debug info copied to clipboard.");
-}
-
-function getNodeVersion(nodeCommand: string): Promise<string> {
-  return new Promise((resolve) => {
-    execFile(nodeCommand, ["--version"], { timeout: 5000 }, (error, stdout) => {
-      if (error) {
-        resolve("unknown");
-      } else {
-        resolve(stdout.trim());
-      }
-    });
-  });
 }
 
 function getOsName(): string {
@@ -73,11 +59,4 @@ function getOsName(): string {
     default:
       return `${os.platform()} ${os.release()}`;
   }
-}
-
-function resolveNodeCommand(nodePath?: string, useExecPath?: boolean): string {
-  if (useExecPath) {
-    return process.execPath || nodePath || "node";
-  }
-  return nodePath || "node";
 }

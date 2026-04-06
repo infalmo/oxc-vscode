@@ -3,10 +3,13 @@ import { env } from "vscode";
 import { copyDebugCommand } from "../../client/commands";
 import type { VSCodeConfig } from "../../client/VSCodeConfig";
 
-function createConfig(nodePath?: string, useExecPath?: boolean): VSCodeConfig {
+function createConfig(
+  oxlintCmd = "npx --no-install oxlint --lsp",
+  oxfmtCmd = "npx --no-install oxfmt --lsp",
+): VSCodeConfig {
   return {
-    nodePath,
-    useExecPath: useExecPath ?? false,
+    oxlintCmd,
+    oxfmtCmd,
   } as VSCodeConfig;
 }
 
@@ -25,7 +28,8 @@ suite("commands", () => {
       ok(clipboardContent.includes("oxfmt: v0.5.0"), "should include oxfmt version");
       ok(clipboardContent.includes("Editor:"), "should include editor info");
       ok(clipboardContent.includes("Operating System and Version:"), "should include OS info");
-      ok(clipboardContent.includes("Node Version:"), "should include Node version");
+      ok(clipboardContent.includes("oxlint cmd:"), "should include oxlint cmd");
+      ok(clipboardContent.includes("oxfmt cmd:"), "should include oxfmt cmd");
       ok(
         clipboardContent.includes("```\nVS Code extension:"),
         "should start code fence before versions",
@@ -33,32 +37,21 @@ suite("commands", () => {
       ok(clipboardContent.endsWith("```"), "should end with code fence");
     });
 
-    test("includes the resolved node command in Node Version line", async () => {
-      await copyDebugCommand("1.50.0", "0.16.0", "0.5.0", createConfig());
-
-      const clipboardContent = await env.clipboard.readText();
-
-      ok(clipboardContent.includes("Node Version:"), "should include Node version");
-      ok(clipboardContent.includes("(node)"), "should show the resolved node command");
-    });
-
-    test("uses custom nodePath when provided", async () => {
-      await copyDebugCommand("1.50.0", "0.16.0", "0.5.0", createConfig(process.execPath, false));
-
-      const clipboardContent = await env.clipboard.readText();
-
-      ok(clipboardContent.includes(`(${process.execPath})`), "should show the custom node path");
-    });
-
-    test("uses execPath when useExecPath is true", async () => {
-      await copyDebugCommand("1.50.0", "0.16.0", "0.5.0", createConfig(undefined, true));
+    test("includes the configured commands in debug info", async () => {
+      await copyDebugCommand(
+        "1.50.0",
+        "0.16.0",
+        "0.5.0",
+        createConfig("bunx oxlint --lsp", "bunx oxfmt --lsp"),
+      );
 
       const clipboardContent = await env.clipboard.readText();
 
       ok(
-        clipboardContent.includes(`(${process.execPath})`),
-        "should show execPath when useExecPath is true",
+        clipboardContent.includes("oxlint cmd: bunx oxlint --lsp"),
+        "should show custom oxlint cmd",
       );
+      ok(clipboardContent.includes("oxfmt cmd: bunx oxfmt --lsp"), "should show custom oxfmt cmd");
     });
 
     test("shows 'unknown' for tools that have not reported versions", async () => {
@@ -78,22 +71,6 @@ suite("commands", () => {
       ok(
         clipboardContent.includes("VS Code extension: v<unknown>"),
         "should show provided fallback extension version",
-      );
-    });
-
-    test("shows 'unknown' node version when the binary is not found", async () => {
-      await copyDebugCommand(
-        "1.50.0",
-        "0.16.0",
-        "0.5.0",
-        createConfig("/nonexistent/path/to/node", false),
-      );
-
-      const clipboardContent = await env.clipboard.readText();
-
-      ok(
-        clipboardContent.includes("Node Version: unknown"),
-        "should show unknown when node binary is not found",
       );
     });
   });

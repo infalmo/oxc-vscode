@@ -1,13 +1,5 @@
 import { ConfigurationChangeEvent, Uri, workspace, WorkspaceFolder } from "vscode";
 import { DiagnosticPullMode } from "vscode-languageclient";
-import {
-  BinarySearchResult,
-  searchGlobalNodeModulesBin,
-  searchEnvPath,
-  searchProjectNodeModulesBin,
-  searchSettingsBin,
-  searchYarnPnpBin,
-} from "./findBinary";
 import { IDisposable } from "./types";
 import { VSCodeConfig } from "./VSCodeConfig";
 import {
@@ -89,14 +81,6 @@ export class ConfigService implements IDisposable {
     return false;
   }
 
-  public async getOxlintServerBinPath(): Promise<BinarySearchResult | undefined> {
-    return this.searchBinaryPath(this.vsCodeConfig.binPathOxlint, "oxlint");
-  }
-
-  public async getOxfmtServerBinPath(): Promise<BinarySearchResult | undefined> {
-    return this.searchBinaryPath(this.vsCodeConfig.binPathOxfmt, "oxfmt");
-  }
-
   public shouldRequestDiagnostics(
     textDocumentUri: Uri,
     diagnosticPullMode: DiagnosticPullMode,
@@ -112,22 +96,6 @@ export class ConfigService implements IDisposable {
     const workspaceConfig = this.getWorkspaceConfig(ws.uri);
 
     return workspaceConfig?.shouldRequestDiagnostics(diagnosticPullMode) ?? false;
-  }
-
-  private async searchBinaryPath(
-    settingsBinary: string | undefined,
-    defaultBinaryName: string,
-  ): Promise<BinarySearchResult | undefined> {
-    if (settingsBinary) {
-      return searchSettingsBin(defaultBinaryName, settingsBinary);
-    }
-
-    return (
-      (await searchProjectNodeModulesBin(defaultBinaryName)) ??
-      (await searchYarnPnpBin(defaultBinaryName)) ??
-      (await searchGlobalNodeModulesBin(defaultBinaryName)) ??
-      (await searchEnvPath(defaultBinaryName))
-    );
   }
 
   private async onVscodeConfigChange(event: ConfigurationChangeEvent): Promise<void> {

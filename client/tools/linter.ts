@@ -1,5 +1,3 @@
-import { promises as fsPromises } from "node:fs";
-
 import {
   commands,
   ConfigurationChangeEvent,
@@ -26,9 +24,8 @@ import { OxcCommands } from "../commands";
 import { ConfigService } from "../ConfigService";
 import StatusBarItemHandler from "../StatusBarItemHandler";
 import { VSCodeConfig } from "../VSCodeConfig";
-import { onClientNotification, runExecutable } from "./lsp_helper";
+import { buildExecutable, onClientNotification } from "./lsp_helper";
 import ToolInterface from "./ToolInterface";
-import type { BinarySearchResult } from "../findBinary";
 
 const languageClientName = "oxc";
 
@@ -52,35 +49,14 @@ export default class LinterTool implements ToolInterface {
     return this.client?.initializeResult?.serverInfo?.version;
   }
 
-  async getBinary(
-    outputChannel: LogOutputChannel,
-    configService: ConfigService,
-  ): Promise<BinarySearchResult | undefined> {
-    if (process.env.SERVER_PATH_DEV) {
-      return { path: process.env.SERVER_PATH_DEV, loader: "native" };
-    }
-    const bin = await configService.getOxlintServerBinPath();
-    if (bin) {
-      try {
-        await fsPromises.access(bin.path);
-        return bin;
-      } catch (e) {
-        outputChannel.error(`Invalid bin path: ${bin.path}`, e);
-      }
-    }
-  }
-
   async activate(
     outputChannel: LogOutputChannel,
     configService: ConfigService,
     statusBarItemHandler: StatusBarItemHandler,
-    binary?: BinarySearchResult,
   ): Promise<void> {
-    if (!binary) {
-      statusBarItemHandler.updateTool("linter", false, "No valid oxlint binary found.");
-      outputChannel.appendLine("No valid oxlint binary found. Linter will not be activated.");
-      return Promise.resolve();
-    }
+    const cmd = process.env.SERVER_PATH_DEV
+      ? `${process.env.SERVER_PATH_DEV} --lsp`
+      : configService.vsCodeConfig.oxlintCmd;
 
     this.allowedToStartServer = configService.vsCodeConfig.requireConfig
       ? (await workspace.findFiles(oxlintConfigDefaultFilePattern, "**/node_modules/**", 1))
@@ -119,19 +95,21 @@ export default class LinterTool implements ToolInterface {
       await this.client.sendRequest(ExecuteCommandRequest.type, params);
     });
 
-    const run: Executable = await runExecutable(
-      binary,
-      configService.vsCodeConfig.useExecPath,
-      configService.vsCodeConfig.nodePath,
-      configService.vsCodeConfig.binPathTsGoLint,
-      configService.vsCodeConfig.suppressProgramErrors,
-    );
+    const extraEnv: Record<string, string> = {};
+    if (configService.vsCodeConfig.tsgolintPath) {
+      extraEnv.OXLINT_TSGOLINT_PATH = configService.vsCodeConfig.tsgolintPath;
+    }
+    if (configService.vsCodeConfig.suppressProgramErrors) {
+      extraEnv.OXLINT_TSGOLINT_DANGEROUSLY_SUPPRESS_PROGRAM_DIAGNOSTICS = "true";
+    }
+
+    const run: Executable = buildExecutable(cmd, extraEnv);
     const serverOptions: ServerOptions = {
       run,
       debug: run,
     };
 
-    outputChannel.info(`Using server binary at: ${binary?.path}`);
+    outputChannel.info(`Using command: ${cmd}`);
 
     // see https://github.com/oxc-project/oxc/blob/9b475ad05b750f99762d63094174be6f6fc3c0eb/crates/oxc_linter/src/loader/partial_loader/mod.rs#L17-L20
     const supportedExtensions = [
@@ -277,8 +255,7 @@ export default class LinterTool implements ToolInterface {
     statusBarItemHandler: StatusBarItemHandler,
   ): Promise<void> {
     await this.deactivate();
-    const newBinaryPath = await this.getBinary(outputChannel, configService);
-    await this.activate(outputChannel, configService, statusBarItemHandler, newBinaryPath);
+    await this.activate(outputChannel, configService, statusBarItemHandler);
   }
 
   async onConfigChange(

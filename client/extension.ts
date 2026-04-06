@@ -103,24 +103,10 @@ export async function activate(context: ExtensionContext) {
     }
   };
 
-  outputChannelFormat.info("Searching for oxfmt binary.");
-  outputChannelLint.info("Searching for oxlint binary.");
-
-  const binaryPaths = await Promise.all(
-    tools.map((tool) =>
-      tool.getBinary(
-        tool instanceof Linter ? outputChannelLint : outputChannelFormat,
-        configService,
-      ),
-    ),
-  );
-
   await Promise.all(
     tools.map((tool): Promise<void> => {
       const channel = tool instanceof Linter ? outputChannelLint : outputChannelFormat;
-      const binaryPath = binaryPaths[tools.indexOf(tool)];
-
-      return tool.activate(channel, configService, statusBarItemHandler, binaryPath);
+      return tool.activate(channel, configService, statusBarItemHandler);
     }),
   );
 

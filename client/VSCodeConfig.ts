@@ -1,15 +1,16 @@
 import { ConfigurationChangeEvent, workspace } from "vscode";
 import { ConfigService } from "./ConfigService";
 
+const DEFAULT_OXLINT_CMD = "npx --no-install oxlint --lsp";
+const DEFAULT_OXFMT_CMD = "npx --no-install oxfmt --lsp";
+
 export class VSCodeConfig implements VSCodeConfigInterface {
   private _enableOxlint!: boolean;
   private _enableOxfmt!: boolean;
   private _trace!: TraceLevel;
-  private _binPathOxlint: string | undefined;
-  private _binPathOxfmt: string | undefined;
-  private _binPathTsGoLint: string | undefined;
-  private _nodePath: string | undefined;
-  private _useExecPath: boolean = false;
+  private _oxlintCmd!: string;
+  private _oxfmtCmd!: string;
+  private _tsgolintPath: string | undefined;
   private _requireConfig!: boolean;
   private _suppressProgramErrors!: boolean;
 
@@ -22,11 +23,6 @@ export class VSCodeConfig implements VSCodeConfigInterface {
   }
 
   public refresh(): void {
-    let binPathOxlint = this.configuration.get<string>("path.oxlint");
-    // fallback to deprecated 'path.server' setting
-    if (!binPathOxlint) {
-      binPathOxlint = this.configuration.get<string>("path.server");
-    }
     let enable =
       this.configuration.get<boolean | null | { oxlint?: boolean; oxfmt?: boolean }>("enable") ??
       true;
@@ -49,11 +45,9 @@ export class VSCodeConfig implements VSCodeConfigInterface {
     this._enableOxlint = enable.oxlint!;
     this._enableOxfmt = enable.oxfmt!;
     this._trace = this.configuration.get<TraceLevel>("trace.server") || "off";
-    this._binPathOxlint = binPathOxlint;
-    this._binPathOxfmt = this.configuration.get<string>("path.oxfmt");
-    this._binPathTsGoLint = this.configuration.get<string>("path.tsgolint");
-    this._nodePath = this.configuration.get<string>("path.node");
-    this._useExecPath = this.configuration.get<boolean>("useExecPath") ?? false;
+    this._oxlintCmd = this.configuration.get<string>("cmd.oxlint") || DEFAULT_OXLINT_CMD;
+    this._oxfmtCmd = this.configuration.get<string>("cmd.oxfmt") || DEFAULT_OXFMT_CMD;
+    this._tsgolintPath = this.configuration.get<string>("path.tsgolint") || undefined;
     this._requireConfig = this.configuration.get<boolean>("requireConfig") ?? false;
     this._suppressProgramErrors = this.configuration.get<boolean>("suppressProgramErrors") ?? false;
   }
@@ -85,49 +79,16 @@ export class VSCodeConfig implements VSCodeConfigInterface {
     return this.configuration.update("trace.server", value);
   }
 
-  get binPathOxlint(): string | undefined {
-    return this._binPathOxlint;
+  get oxlintCmd(): string {
+    return this._oxlintCmd;
   }
 
-  updateBinPathOxlint(value: string | undefined): PromiseLike<void> {
-    this._binPathOxlint = value;
-    return this.configuration.update("path.oxlint", value);
+  get oxfmtCmd(): string {
+    return this._oxfmtCmd;
   }
 
-  get binPathOxfmt(): string | undefined {
-    return this._binPathOxfmt;
-  }
-
-  updateBinPathOxfmt(value: string | undefined): PromiseLike<void> {
-    this._binPathOxfmt = value;
-    return this.configuration.update("path.oxfmt", value);
-  }
-
-  get binPathTsGoLint(): string | undefined {
-    return this._binPathTsGoLint;
-  }
-
-  updateBinPathTsGoLint(value: string | undefined): PromiseLike<void> {
-    this._binPathTsGoLint = value;
-    return this.configuration.update("path.tsgolint", value);
-  }
-
-  get nodePath(): string | undefined {
-    return this._nodePath;
-  }
-
-  updateNodePath(value: string | undefined): PromiseLike<void> {
-    this._nodePath = value;
-    return this.configuration.update("path.node", value);
-  }
-
-  get useExecPath(): boolean {
-    return this._useExecPath;
-  }
-
-  updateUseExecPath(value: boolean): PromiseLike<void> {
-    this._useExecPath = value;
-    return this.configuration.update("useExecPath", value);
+  get tsgolintPath(): string | undefined {
+    return this._tsgolintPath;
   }
 
   get requireConfig(): boolean {
@@ -148,29 +109,15 @@ export class VSCodeConfig implements VSCodeConfigInterface {
     return this.configuration.update("suppressProgramErrors", value);
   }
 
-  /**
-   * These configuration changes need a complete restart of all language servers
-   */
-  private effectsGeneralLSPConnection(event: ConfigurationChangeEvent): boolean {
-    return (
-      event.affectsConfiguration(`${ConfigService.namespace}.path.node`) ||
-      event.affectsConfiguration(`${ConfigService.namespace}.useExecPath`)
-    );
-  }
-
   effectsOxlintConnection(event: ConfigurationChangeEvent): boolean {
     return (
-      event.affectsConfiguration(`${ConfigService.namespace}.path.oxlint`) ||
-      event.affectsConfiguration(`${ConfigService.namespace}.path.tsgolint`) ||
-      this.effectsGeneralLSPConnection(event)
+      event.affectsConfiguration(`${ConfigService.namespace}.cmd.oxlint`) ||
+      event.affectsConfiguration(`${ConfigService.namespace}.path.tsgolint`)
     );
   }
 
   effectsOxfmtConnection(event: ConfigurationChangeEvent): boolean {
-    return (
-      event.affectsConfiguration(`${ConfigService.namespace}.path.oxfmt`) ||
-      this.effectsGeneralLSPConnection(event)
-    );
+    return event.affectsConfiguration(`${ConfigService.namespace}.cmd.oxfmt`);
   }
 }
 
@@ -200,39 +147,29 @@ interface VSCodeConfigInterface {
    */
   trace: TraceLevel;
   /**
-   * Path to the `oxlint` binary
-   * `oxc.path.oxlint`
-   * @default undefined
+   * Command to run the oxlint LSP server
+   * `oxc.cmd.oxlint`
+   * @default "npx --no-install oxlint --lsp"
    */
-  binPathOxlint: string | undefined;
-
+  oxlintCmd: string;
   /**
-   * Path to the `tsgolint` binary
+   * Command to run the oxfmt LSP server
+   * `oxc.cmd.oxfmt`
+   * @default "npx --no-install oxfmt --lsp"
+   */
+  oxfmtCmd: string;
+  /**
+   * Path to the tsgolint binary, passed as `OXLINT_TSGOLINT_PATH` to oxlint.
    * `oxc.path.tsgolint`
-   * @default undefined
+   * @default undefined (oxlint auto-detects)
    */
-  binPathTsGoLint: string | undefined;
-
-  /**
-   * Path to a JavaScript runtime binary (Node.js, bun, or deno)
-   * `oxc.path.node`
-   * @default undefined
-   */
-  nodePath: string | undefined;
-
-  /**
-   * Whether to use the extension's execPath (Electron's bundled Node.js) as the JavaScript runtime for running Oxc tools,
-   * instead of looking for a system Node.js installation.
-   */
-  useExecPath: boolean;
-
+  tsgolintPath: string | undefined;
   /**
    * Start the language server only when a `.oxlintrc.json` file exists in one of the workspaces.
    * `oxc.requireConfig`
    * @default false
    */
   requireConfig: boolean;
-
   /**
    * Suppress tsconfig errors from tsgolint and still lint files under partially-valid tsconfig projects.
    * `oxc.suppressProgramErrors`

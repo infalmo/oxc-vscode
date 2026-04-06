@@ -11,12 +11,9 @@ suite("VSCodeConfig", () => {
     "enable.oxfmt",
     "requireConfig",
     "trace.server",
-    "path.server",
-    "path.oxlint",
-    "path.oxfmt",
+    "cmd.oxlint",
+    "cmd.oxfmt",
     "path.tsgolint",
-    "path.node",
-    "useExecPath",
     "suppressProgramErrors",
   ];
   setup(async () => {
@@ -34,23 +31,13 @@ suite("VSCodeConfig", () => {
     strictEqual(config.enableOxfmt, true, "enableOxfmt should default to true");
     strictEqual(config.requireConfig, false);
     strictEqual(config.trace, "off");
-    strictEqual(config.binPathOxlint, "");
-    strictEqual(config.binPathOxfmt, "");
-    strictEqual(config.binPathTsGoLint, "");
-    strictEqual(config.nodePath, "");
-    strictEqual(config.useExecPath, false);
+    strictEqual(config.oxlintCmd, "npx --no-install oxlint --lsp");
+    strictEqual(config.oxfmtCmd, "npx --no-install oxfmt --lsp");
     strictEqual(
       config.suppressProgramErrors,
       false,
       "suppressProgramErrors should default to false",
     );
-  });
-
-  test("deprecated values are respected", async () => {
-    await conf.update("path.server", "./deprecatedBinary");
-    const config = new VSCodeConfig();
-
-    strictEqual(config.binPathOxlint, "./deprecatedBinary");
   });
 
   test("update enable, will update enable.oxlint and enable.oxfmt respectively", async () => {
@@ -78,11 +65,6 @@ suite("VSCodeConfig", () => {
       config.updateEnableOxfmt(false),
       config.updateRequireConfig(true),
       config.updateTrace("messages"),
-      config.updateBinPathOxlint("./binary"),
-      config.updateBinPathOxfmt("./formatter"),
-      config.updateBinPathTsGoLint("./tsgolint"),
-      config.updateNodePath("./node"),
-      config.updateUseExecPath(true),
       config.updateSuppressTsconfigErrors(true),
     ]);
 
@@ -92,11 +74,6 @@ suite("VSCodeConfig", () => {
     strictEqual(wsConfig.get("enable.oxfmt"), false);
     strictEqual(wsConfig.get("requireConfig"), true);
     strictEqual(wsConfig.get("trace.server"), "messages");
-    strictEqual(wsConfig.get("path.oxlint"), "./binary");
-    strictEqual(wsConfig.get("path.oxfmt"), "./formatter");
-    strictEqual(wsConfig.get("path.tsgolint"), "./tsgolint");
-    strictEqual(wsConfig.get("path.node"), "./node");
-    strictEqual(wsConfig.get("useExecPath"), true);
     strictEqual(wsConfig.get("suppressProgramErrors"), true);
   });
 
@@ -105,12 +82,10 @@ suite("VSCodeConfig", () => {
     const wsConfig = workspace.getConfiguration("oxc");
 
     const testCases = [
-      { key: "path.oxlint", affects: true },
+      { key: "cmd.oxlint", affects: true },
       { key: "path.tsgolint", affects: true },
-      { key: "path.node", affects: true },
-      { key: "useExecPath", affects: true },
       { key: "requireConfig", affects: false },
-      { key: "path.oxfmt", affects: false },
+      { key: "cmd.oxfmt", affects: false },
     ];
 
     for (const { key, affects } of testCases) {
@@ -133,12 +108,10 @@ suite("VSCodeConfig", () => {
     const wsConfig = workspace.getConfiguration("oxc");
 
     const testCases = [
-      { key: "path.oxfmt", affects: true },
-      { key: "path.node", affects: true },
-      { key: "useExecPath", affects: true },
+      { key: "cmd.oxfmt", affects: true },
       { key: "path.tsgolint", affects: false },
       { key: "requireConfig", affects: false },
-      { key: "path.oxlint", affects: false },
+      { key: "cmd.oxlint", affects: false },
     ];
 
     for (const { key, affects } of testCases) {

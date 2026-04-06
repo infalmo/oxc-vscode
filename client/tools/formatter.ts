@@ -1,5 +1,3 @@
-import { promises as fsPromises } from "node:fs";
-
 import {
   CodeAction,
   CodeActionKind,
@@ -27,9 +25,8 @@ import {
 import { OxcCommands } from "../commands";
 import { ConfigService } from "../ConfigService";
 import StatusBarItemHandler from "../StatusBarItemHandler";
-import { onClientNotification, runExecutable } from "./lsp_helper";
+import { buildExecutable, onClientNotification } from "./lsp_helper";
 import ToolInterface from "./ToolInterface";
-import type { BinarySearchResult } from "../findBinary";
 
 const languageClientName = "oxc";
 
@@ -272,36 +269,14 @@ export default class FormatterTool implements ToolInterface {
     return this.client?.initializeResult?.serverInfo?.version;
   }
 
-  async getBinary(
-    outputChannel: LogOutputChannel,
-    configService: ConfigService,
-  ): Promise<BinarySearchResult | undefined> {
-    if (process.env.SERVER_PATH_DEV) {
-      return { path: process.env.SERVER_PATH_DEV, loader: "native" };
-    }
-    const bin = await configService.getOxfmtServerBinPath();
-    if (bin) {
-      try {
-        await fsPromises.access(bin.path);
-        return bin;
-      } catch (e) {
-        outputChannel.error(`Invalid bin path: ${bin.path}`, e);
-      }
-    }
-  }
-
   async activate(
     outputChannel: LogOutputChannel,
     configService: ConfigService,
     statusBarItemHandler: StatusBarItemHandler,
-    binary?: BinarySearchResult,
   ) {
-    // No valid binary found for the formatter.
-    if (!binary) {
-      statusBarItemHandler.updateTool("formatter", false, "No valid oxfmt binary found.");
-      outputChannel.appendLine("No valid oxfmt binary found. Formatter will not be activated.");
-      return Promise.resolve();
-    }
+    const cmd = process.env.SERVER_PATH_DEV
+      ? `${process.env.SERVER_PATH_DEV} --lsp`
+      : configService.vsCodeConfig.oxfmtCmd;
 
     const restartCommand = commands.registerCommand(OxcCommands.RestartServerFmt, async () => {
       await this.restart(outputChannel, configService, statusBarItemHandler);
@@ -330,13 +305,8 @@ export default class FormatterTool implements ToolInterface {
       },
     );
 
-    outputChannel.info(`Using server binary at: ${binary?.path}`);
-
-    const run: Executable = await runExecutable(
-      binary,
-      configService.vsCodeConfig.useExecPath,
-      configService.vsCodeConfig.nodePath,
-    );
+    outputChannel.info(`Using command: ${cmd}`);
+    const run: Executable = buildExecutable(cmd);
 
     const serverOptions: ServerOptions = {
       run,
@@ -414,8 +384,7 @@ export default class FormatterTool implements ToolInterface {
     statusBarItemHandler: StatusBarItemHandler,
   ): Promise<void> {
     await this.deactivate();
-    const newBinaryPath = await this.getBinary(outputChannel, configService);
-    await this.activate(outputChannel, configService, statusBarItemHandler, newBinaryPath);
+    await this.activate(outputChannel, configService, statusBarItemHandler);
   }
 
   async toggleClient(configService: ConfigService): Promise<void> {
