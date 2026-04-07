@@ -7,6 +7,7 @@ suite("buildExecutable", () => {
 
     strictEqual(result.command, "npx --no oxlint --lsp");
     strictEqual(result.options?.shell, true);
+    strictEqual(result.options?.cwd, undefined);
   });
 
   test("should set default environment variables", () => {
@@ -17,11 +18,17 @@ suite("buildExecutable", () => {
   });
 
   test("should merge extra environment variables", () => {
-    const result = buildExecutable("npx --no oxlint --lsp", {
+    const result = buildExecutable("npx --no oxlint --lsp", undefined, {
       OXLINT_TSGOLINT_PATH: "/path/to/tsgolint",
     });
 
     strictEqual(result.options?.env?.OXLINT_TSGOLINT_PATH, "/path/to/tsgolint");
     strictEqual(result.options?.env?.NO_COLOR, "1");
+  });
+
+  test("should set cwd when provided", () => {
+    const result = buildExecutable("npx --no oxlint --lsp", "/workspace/root");
+
+    strictEqual(result.options?.cwd, "/workspace/root");
   });
 });

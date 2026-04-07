@@ -1,11 +1,16 @@
 import { LogOutputChannel, window } from "vscode";
 import { Executable, MessageType, ShowMessageParams } from "vscode-languageclient/node";
 
-export function buildExecutable(cmd: string, extraEnv?: Record<string, string>): Executable {
+export function buildExecutable(
+  cmd: string,
+  cwd?: string,
+  extraEnv?: Record<string, string>,
+): Executable {
   return {
     command: cmd,
     options: {
       shell: true,
+      cwd,
       env: {
         ...process.env,
         RUST_LOG: process.env.RUST_LOG || "info",

@@ -103,7 +103,8 @@ export default class LinterTool implements ToolInterface {
       extraEnv.OXLINT_TSGOLINT_DANGEROUSLY_SUPPRESS_PROGRAM_DIAGNOSTICS = "true";
     }
 
-    const run: Executable = buildExecutable(cmd, extraEnv);
+    const cwd = workspace.workspaceFolders?.[0]?.uri.fsPath;
+    const run: Executable = buildExecutable(cmd, cwd, extraEnv);
     const serverOptions: ServerOptions = {
       run,
       debug: run,

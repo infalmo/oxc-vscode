@@ -305,8 +305,9 @@ export default class FormatterTool implements ToolInterface {
       },
     );
 
+    const cwd = workspace.workspaceFolders?.[0]?.uri.fsPath;
     outputChannel.info(`Using command: ${cmd}`);
-    const run: Executable = buildExecutable(cmd);
+    const run: Executable = buildExecutable(cmd, cwd);
 
     const serverOptions: ServerOptions = {
       run,
