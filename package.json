@@ -307,6 +307,18 @@
           "default": "npx --no-install oxlint --lsp",
           "markdownDescription": "Command to run the oxlint LSP server. Examples: `npx --no-install oxlint --lsp`, `bunx --no-install oxlint --lsp`, `/usr/local/bin/oxlint --lsp`."
         },
+        "oxc.allowedCommands": {
+          "type": "array",
+          "scope": "window",
+          "items": {
+            "type": "string"
+          },
+          "default": [
+            "npx --no-install oxlint --lsp",
+            "npx --no-install oxfmt --lsp"
+          ],
+          "markdownDescription": "Allow-list for `oxc.cmd.oxlint` / `oxc.cmd.oxfmt`. Workspace settings can point to malicious shell commands, so anything not on this list triggers a confirmation prompt before running."
+        },
         "oxc.cmd.oxfmt": {
           "type": "string",
           "scope": "window",
@@ -383,7 +395,8 @@
       "restrictedConfigurations": [
         "oxc.cmd.oxlint",
         "oxc.cmd.oxfmt",
-        "oxc.path.tsgolint"
+        "oxc.path.tsgolint",
+        "oxc.allowedCommands"
       ]
     }
   },

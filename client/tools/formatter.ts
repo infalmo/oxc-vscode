@@ -25,7 +25,7 @@ import {
 import { OxcCommands } from "../commands";
 import { ConfigService } from "../ConfigService";
 import StatusBarItemHandler from "../StatusBarItemHandler";
-import { buildExecutable, onClientNotification } from "./lsp_helper";
+import { buildExecutable, ensureCommandAllowed, onClientNotification } from "./lsp_helper";
 import ToolInterface from "./ToolInterface";
 
 const languageClientName = "oxc";
@@ -278,6 +278,8 @@ export default class FormatterTool implements ToolInterface {
       ? `${process.env.SERVER_PATH_DEV} --lsp`
       : configService.vsCodeConfig.oxfmtCmd;
 
+    const cmdAllowed = await ensureCommandAllowed(cmd, outputChannel);
+
     const restartCommand = commands.registerCommand(OxcCommands.RestartServerFmt, async () => {
       await this.restart(outputChannel, configService, statusBarItemHandler);
     });
@@ -361,7 +363,7 @@ export default class FormatterTool implements ToolInterface {
       onNotificationDispose.dispose();
     };
 
-    if (configService.vsCodeConfig.enableOxfmt) {
+    if (configService.vsCodeConfig.enableOxfmt && cmdAllowed) {
       await this.client.start();
     }
 

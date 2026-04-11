@@ -24,7 +24,7 @@ import { OxcCommands } from "../commands";
 import { ConfigService } from "../ConfigService";
 import StatusBarItemHandler from "../StatusBarItemHandler";
 import { VSCodeConfig } from "../VSCodeConfig";
-import { buildExecutable, onClientNotification } from "./lsp_helper";
+import { buildExecutable, ensureCommandAllowed, onClientNotification } from "./lsp_helper";
 import ToolInterface from "./ToolInterface";
 
 const languageClientName = "oxc";
@@ -57,6 +57,8 @@ export default class LinterTool implements ToolInterface {
     const cmd = process.env.SERVER_PATH_DEV
       ? `${process.env.SERVER_PATH_DEV} --lsp`
       : configService.vsCodeConfig.oxlintCmd;
+
+    const cmdAllowed = await ensureCommandAllowed(cmd, outputChannel);
 
     this.allowedToStartServer = configService.vsCodeConfig.requireConfig
       ? (await workspace.findFiles(oxlintConfigDefaultFilePattern, "**/node_modules/**", 1))
@@ -199,11 +201,11 @@ export default class LinterTool implements ToolInterface {
     });
 
     let activatorDispatcher: { dispose: () => void } | undefined;
-    if (this.allowedToStartServer) {
+    if (this.allowedToStartServer && cmdAllowed) {
       if (configService.vsCodeConfig.enableOxlint) {
         await this.client.start();
       }
-    } else {
+    } else if (!this.allowedToStartServer) {
       activatorDispatcher = this.generateActivatorByConfig(
         configService.vsCodeConfig,
         statusBarItemHandler,
