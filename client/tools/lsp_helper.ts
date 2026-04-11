@@ -47,9 +47,8 @@ export async function ensureCommandAllowed(
   if (allowed.includes(cmd)) return true;
 
   const answer = await window.showWarningMessage(
-    `Oxc wants to run a shell command that is not on your allow-list: \`${cmd}\` \n` +
-      "Only allow it if you trust the command. Adds to `oxc.allowedCommands` in your user settings.",
-    { modal: true },
+    "Oxc wants to run a shell command that is not on your allow-list. " +
+      `Only allow if you trust the command: "${cmd}".`,
     "Allow",
     "Deny",
   );
