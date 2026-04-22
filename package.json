@@ -25,7 +25,7 @@
   "sponsor": {
     "url": "https://github.com/sponsors/boshen"
   },
-  "publisher": "oxc",
+  "publisher": "infalmo",
   "main": "./out/main.js",
   "scripts": {
     "preinstall": "[ -f icon.png ] || curl https://cdn.jsdelivr.net/gh/oxc-project/oxc-assets/black-bg-circle.png --output icon.png",
